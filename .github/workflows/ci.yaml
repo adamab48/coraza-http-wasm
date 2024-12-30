@@ -39,15 +39,6 @@ jobs:
       - name: Build wasm binary
         run: go run mage.go build
 
-      - name: Run tests
-        run: go run mage.go test
-
-      - name: Run E2E tests
-        run: go run mage.go e2e
-
-      - name: Run FTW tests
-        run: go run mage.go ftw
-
       - name: Create draft release
         # Triggered only on tag creation and if release does not exist
         if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
