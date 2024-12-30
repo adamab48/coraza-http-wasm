@@ -1,4 +1,4 @@
-module github.com/jcchavezs/coraza-http-wasm/testing/coreruleset
+module github.com/adamab48/coraza-http-wasm/testing/coreruleset
 
 go 1.22
 

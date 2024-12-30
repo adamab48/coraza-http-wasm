@@ -109,7 +109,7 @@ func Format() error {
 	return sh.RunV("go", "run", fmt.Sprintf("github.com/rinchsan/gosimports/cmd/gosimports@%s", gosImportsVer),
 		"-w",
 		"-local",
-		"github.com/jcchavezs/coraza-http-wasm",
+		"github.com/adamab48/coraza-http-wasm",
 		".")
 }
 
