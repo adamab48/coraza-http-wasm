@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	coreruleset "github.com/corazawaf/coraza-coreruleset/v4"
 	"github.com/corazawaf/coraza-http-wasm/operators"
@@ -29,12 +30,17 @@ func init() {
 }
 
 var waf coraza.WAF
-var txs = map[uint32]types.Transaction{}
+
+// Use sync.Map instead of regular map to handle concurrent access safely
+// and avoid memory leaks from uncleaned entries
+var txs sync.Map
 
 // main ensures buffering is available on the host.
 //
 // Note: required features does not include api.FeatureTrailers because some
 // hosts don't support them, and the impact is minimal for logging.
+//
+// Note: we use the same WAF instance for all requests.
 func main() {
 	requiredFeatures := api.FeatureBufferRequest | api.FeatureBufferResponse
 	if want, have := requiredFeatures, httpwasm.Host.EnableFeatures(requiredFeatures); !have.IsEnabled(want) {
@@ -162,9 +168,6 @@ func initializeWAF(host api.Host) (coraza.WAF, error) {
 	wafConfig = wafConfig.WithDebugLogger(debuglog.DefaultWithPrinterFactory(func(io.Writer) debuglog.Printer {
 		return func(lvl debuglog.Level, message, fields string) {
 			host.Log(toHostLevel(lvl), message+" "+fields)
-			// TODO understand. 3 works.
-			// But I can't print everything as error
-			// host.Log(toHostLevel(3), message+" "+fields)
 		}
 	})).WithErrorCallback(errorCb(host))
 
@@ -267,7 +270,7 @@ func handleRequest(req api.Request, res api.Response) (next bool, reqCtx uint32)
 	}
 
 	reqCtx = rand.Uint32()
-	txs[reqCtx] = tx
+	txs.Store(reqCtx, tx)
 	return true, reqCtx
 }
 
@@ -296,11 +299,12 @@ func handleResponse(reqCtx uint32, req api.Request, resp api.Response, isError b
 		return
 	}
 
-	tx, ok := txs[reqCtx]
+	txValue, ok := txs.Load(reqCtx)
 	if !ok {
 		return
 	}
-	delete(txs, reqCtx)
+	tx := txValue.(types.Transaction)
+	txs.Delete(reqCtx)
 
 	defer func() {
 		// We run phase 5 rules and create audit logs (if enabled)
